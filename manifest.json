@@ -1,0 +1,27 @@
+{
+  "name": "Capillary Tube Sizer Pro | م. أحمد زينور",
+  "short_name": "Capillary Pro",
+  "description": "منصة التبريد والتكييف الشاملة - حساب الأنبوب الشعري وتشخيص الأعطال",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1329",
+  "theme_color": "#0b1329",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "./IMG_8759.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./IMG_8759.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
