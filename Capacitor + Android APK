@@ -1,0 +1,99 @@
+name: Build Capillary Pro APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'رقم الإصدار (مثال: v16.0)'
+        required: true
+        default: 'v16.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Prepare Web Assets & Capacitor
+        run: |
+          mkdir -p www
+          cp index.html manifest.json sw.js IMG_8759.png www/
+          npm init -y
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          cat << 'EOF' > capacitor.config.json
+          {
+            "appId": "com.zinnour.capillarypro",
+            "appName": "Capillary Pro",
+            "webDir": "www",
+            "server": {
+              "androidScheme": "https"
+            }
+          }
+          EOF
+          npx cap add android
+
+      - name: Configure Android Permissions & Icon
+        run: |
+          python3 -c '
+          p = "android/app/src/main/AndroidManifest.xml"
+          txt = open(p, encoding="utf-8").read()
+          perms = """
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-permission android:name="android.permission.RECORD_AUDIO" />
+              <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+          """
+          if "ACCESS_FINE_LOCATION" not in txt:
+              txt = txt.replace("<application", perms + "\n    <application", 1)
+          open(p, "w", encoding="utf-8").write(txt)
+          '
+          which convert || (sudo apt-get update && sudo apt-get install -y imagemagick)
+          rm -rf android/app/src/main/res/mipmap-anydpi-v26
+          for spec in "mdpi:48" "hdpi:72" "xhdpi:96" "xxhdpi:144" "xxxhdpi:192"; do
+            dpi="${spec%%:*}"
+            sz="${spec##*:}"
+            mkdir -p "android/app/src/main/res/mipmap-${dpi}"
+            convert IMG_8759.png -resize "${sz}x${sz}^" -gravity center -extent "${sz}x${sz}" "android/app/src/main/res/mipmap-${dpi}/ic_launcher.png"
+            cp "android/app/src/main/res/mipmap-${dpi}/ic_launcher.png" "android/app/src/main/res/mipmap-${dpi}/ic_launcher_round.png"
+          done
+
+      - name: Sync & Build APK
+        run: |
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../Capillary-Pro.apk
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Capillary-Pro-APK
+          path: Capillary-Pro.apk
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}
+          name: Capillary Tube Sizer Pro ${{ inputs.version }}
+          body: |
+            تطبيق حساب الأنبوب الشعري PRO - م. أحمد زينور 🇩🇿
+            - يعمل كتطبيق أندرويد مستقل بدون متصفح وأوفلاين (Offline)
+            - يدعم 17 غاز تبريد + شاشة testo 550s + المحول العكسي PRO + قياس الارتفاع عبر GPS
+          files: Capillary-Pro.apk
+          make_latest: true
